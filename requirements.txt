@@ -1,0 +1,8 @@
+streamlit==1.32.0
+langchain==0.3.26
+langchain-community==0.3.26
+langchain-chroma==0.2.4
+pypdf==5.4.0
+ollama==0.5.1
+requests==2.32.3
+python-dotenv==1.0.1
