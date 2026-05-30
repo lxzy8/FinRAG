@@ -26,11 +26,12 @@ def update(ff_name):
 @cli.command()
 @click.option('--input-pdb', help="Input PDB file.")
 @click.option('--input-seq', help="Input Sequence+Angles file.")
+@click.option('--input-smiles', help="Input SMILES string.")
 @click.option('--work-dir', default="uaamd_out", help="Working directory for outputs.")
-def prep(input_pdb, input_seq, work_dir):
+def prep(input_pdb, input_seq, input_smiles, work_dir):
     """Run the MD preparation pipeline."""
-    if not input_pdb and not input_seq:
-        click.echo("Error: Must provide either --input-pdb or --input-seq", err=True)
+    if not input_pdb and not input_seq and not input_smiles:
+        click.echo("Error: Must provide either --input-pdb, --input-seq, or --input-smiles", err=True)
         return
 
     from uaamd.core.parser import StructureParser
@@ -60,6 +61,26 @@ def prep(input_pdb, input_seq, work_dir):
             click.echo(f"Generated temporary PDB at {input_pdb}")
         except Exception as e:
             click.echo(f"Error parsing sequence: {e}", err=True)
+            return
+
+    # If SMILES is provided, parse it to a temporary PDB file first
+    if input_smiles and not input_pdb:
+        click.echo(f"Building 3D structure from SMILES: {input_smiles}...")
+        try:
+            struct = parser.parse_smiles(input_smiles)
+
+            # Save it temporarily to pass into the pipeline
+            fd, temp_path = tempfile.mkstemp(suffix=".pdb")
+            os.close(fd)
+            from Bio.PDB import PDBIO
+            io = PDBIO()
+            io.set_structure(struct)
+            io.save(temp_path)
+
+            input_pdb = temp_path
+            click.echo(f"Generated temporary PDB at {input_pdb}")
+        except Exception as e:
+            click.echo(f"Error parsing SMILES: {e}", err=True)
             return
 
     click.echo(f"Initializing UAAMD pipeline for {input_pdb}...")

@@ -39,3 +39,24 @@ def test_parse_rtp_simple(tmp_path):
     assert "ARG" in res
     assert res["ALA"] == ["N", "HN", "CA"]
     assert res["ARG"] == ["N"]
+
+def test_parse_smiles():
+    from uaamd.core.parser import StructureParser
+    parser = StructureParser()
+    struct = parser.parse_smiles("CCO")
+    assert struct is not None
+    atoms = list(struct.get_atoms())
+    # CCO = 2 carbons, 1 oxygen, 6 hydrogens = 9 atoms
+    assert len(atoms) == 9
+
+def test_parse_sequence_angles(tmp_path):
+    from uaamd.core.parser import StructureParser
+    seq_file = tmp_path / "test.seq"
+    seq_file.write_text("ALA -60 -40 180\nGLY -60 -40 180")
+    parser = StructureParser()
+    struct = parser.parse_sequence_angles(str(seq_file))
+    assert struct is not None
+    residues = list(struct.get_residues())
+    assert len(residues) == 2
+    assert residues[0].get_resname() == "ALA"
+    assert residues[1].get_resname() == "GLY"

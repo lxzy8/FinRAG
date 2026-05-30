@@ -34,8 +34,6 @@ class StructureParser:
         import PeptideBuilder
         import Bio.PDB
 
-        geo = PeptideBuilder.Geometry.geometry("G") # Default starting geometry
-
         structure_seq = None
 
         with open(seq_angles_file, 'r') as f:
@@ -60,14 +58,17 @@ class StructureParser:
                 # so the backbone geometry is constructed properly
                 pb_res = one_letter if len(one_letter) == 1 else "G"
 
+                geo = PeptideBuilder.Geometry.geometry(pb_res)
                 geo.phi = phi
                 geo.psi_im1 = psi
                 geo.omega = omega
 
                 if structure_seq is None:
-                    structure_seq = PeptideBuilder.initialize_res(pb_res)
+                    # PeptideBuilder initialize_res takes a Geometry object since v1.1
+                    structure_seq = PeptideBuilder.initialize_res(geo)
                 else:
-                    PeptideBuilder.add_residue(structure_seq, pb_res, geo.phi, geo.psi_im1, geo.omega)
+                    # PeptideBuilder add_residue takes the Structure and a Geometry object
+                    PeptideBuilder.add_residue(structure_seq, geo)
 
         if structure_seq is None:
             raise ValueError("No residues found in sequence file.")
@@ -100,3 +101,36 @@ class StructureParser:
                         res_idx += 1
 
         return struct
+
+    def parse_smiles(self, smiles_string):
+        """
+        Parses a SMILES string, generates 3D coordinates, and returns a BioPython structure.
+        """
+        from rdkit import Chem
+        from rdkit.Chem import AllChem
+        import tempfile
+        import os
+
+        # 1. Parse SMILES to Mol
+        mol = Chem.MolFromSmiles(smiles_string)
+        if mol is None:
+            raise ValueError(f"Failed to parse SMILES string: {smiles_string}")
+
+        # 2. Add hydrogens
+        mol = Chem.AddHs(mol)
+
+        # 3. Generate 3D coordinates using ETKDG (standard RDKit embedding)
+        AllChem.EmbedMolecule(mol, AllChem.ETKDG())
+
+        # 4. Optimize geometry with MMFF
+        AllChem.MMFFOptimizeMolecule(mol)
+
+        # 5. Export to PDB format
+        pdb_block = Chem.MolToPDBBlock(mol)
+
+        # 6. Save to temp file and load via BioPython
+        fd, temp_path = tempfile.mkstemp(suffix=".pdb")
+        with os.fdopen(fd, 'w') as f:
+            f.write(pdb_block)
+
+        return self.parse_pdb(temp_path)
