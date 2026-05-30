@@ -1,17 +1,24 @@
-# Financial Document Analyst
+# UAAMD: Universal UAA-Aware MD Prep Pipeline
 
-AI-powered analysis of SEC 10-K filings using RAG architecture.
-
-![Demo](https://via.placeholder.com/800x400?text=Financial+RAG+Demo)
+A universal UAA-aware MD prep pipeline that turns sequence/structure inputs into validated GROMACS-ready simulation files using auto-updated CHARMM36 force fields.
 
 ## Features
-- PDF document processing
-- Semantic search with DeepSeek-R1
-- Source citation
-- Local LLM execution
+- Support for sequence+angles and PDB inputs.
+- Auto-updates CHARMM36 force field from the MacKerell lab.
+- Fixes atom and residue names to match force field expectations.
+- End-to-end wrapper for GROMACS simulation preparation.
+- Provides a comprehensive pipeline report.
 
 ## Installation
+```bash
+pip install .
+```
 
-1. Install Ollama:
-   ```bash
-   curl -fsSL https://ollama.com/install.sh | sh
+## Usage
+```bash
+# Update Force Field
+uaamd ff update charmm36
+
+# Prepare MD system
+uaamd prep --input file.pdb
+```
