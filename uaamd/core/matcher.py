@@ -51,6 +51,16 @@ class ForceFieldMatcher:
         self.ff_dir = find_latest_charmm36_dir(ff_base_dir)
         self.ff_residues = {}
 
+        self.mappings = {
+            "F": "FE3",
+            # Specific UAA standard mappings for CHARMM36
+            "SEP": {"P": "P", "O1P": "O1P", "O2P": "O2P", "O3P": "O3P"},
+            "TPO": {"P": "P", "O1P": "O1P", "O2P": "O2P", "O3P": "O3P"},
+            "PTR": {"P": "P", "O1P": "O1P", "O2P": "O2P", "O3P": "O3P"},
+            "MLY": {"NZ": "NZ", "CH1": "CH1", "CH2": "CH2"}, # e.g. Lysine methylation
+            "MSE": {"SE": "SE", "CE": "CE"} # Selenomethionine
+        }
+
         if self.ff_dir:
             self._load_rtp()
 
@@ -92,14 +102,16 @@ class ForceFieldMatcher:
 
                         if atom_name not in ff_atoms:
                             # Attempt simple mapping (this dictionary would grow based on UAA knowledge)
-                            mappings = {
-                                "F": "FE3",
-                                "CD1": "CD1", # Example placeholders
-                            }
+                            new_name = None
+                            if resname in self.mappings and isinstance(self.mappings[resname], dict):
+                                if atom_name in self.mappings[resname]:
+                                    new_name = self.mappings[resname][atom_name]
+                            elif atom_name in self.mappings and not isinstance(self.mappings[atom_name], dict):
+                                new_name = self.mappings[atom_name]
 
-                            if atom_name in mappings and mappings[atom_name] in ff_atoms:
-                                report_lines.append(f"Atom mismatch fixed in {resname}: {atom_name} -> {mappings[atom_name]}")
-                                atom.set_name(mappings[atom_name])
+                            if new_name and new_name in ff_atoms:
+                                report_lines.append(f"Atom mismatch fixed in {resname}: {atom_name} -> {new_name}")
+                                atom.set_name(new_name)
                                 fixed_count += 1
                             else:
                                 pass # Wait for grompp to complain if really missing

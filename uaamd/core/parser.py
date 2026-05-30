@@ -31,43 +31,72 @@ class StructureParser:
         if not os.path.exists(seq_angles_file):
             raise FileNotFoundError(f"Sequence angles file not found: {seq_angles_file}")
 
-        # This is a simplified implementation for proof-of-concept
-        # A true sequence to 3D structure from internal coords requires complex math (e.g. NeRF algorithm)
-        # Here we will parse the file and mock the PDB creation
-        residues = []
+        import PeptideBuilder
+        import Bio.PDB
+
+        geo = PeptideBuilder.Geometry.geometry("G") # Default starting geometry
+
+        structure_seq = None
+
         with open(seq_angles_file, 'r') as f:
             for line in f:
                 parts = line.strip().split()
-                if len(parts) >= 1:
-                    residues.append(parts[0])
+                if len(parts) == 0:
+                    continue
 
-        if not residues:
-             raise ValueError("No residues found in sequence file.")
+                resname = parts[0]
+                phi = float(parts[1]) if len(parts) > 1 else -120.0
+                psi = float(parts[2]) if len(parts) > 2 else 140.0
+                omega = float(parts[3]) if len(parts) > 3 else -180.0
 
-        # Since building from scratch using internal coords is extremely complex for this scope,
-        # we will use an external tool or fallback to a dummy structure for demonstration
-        # In a production tool, this would use something like PeptideBuilder or pyRosetta
+                # Using 1-letter codes if standard, otherwise PeptideBuilder defaults
+                # to creating a generic residue backbone where we might need to manually set the resname later
+                # PeptideBuilder accepts 1 letter codes for standard amino acids
+                one_letter = resname
+                if len(resname) == 3:
+                    one_letter = Bio.PDB.Polypeptide.protein_letters_3to1.get(resname, "G")
 
-        # Creating a dummy structure just to pass the pipeline for now
-        builder = StructureBuilder()
-        builder.init_structure("system")
-        builder.init_model(0)
-        builder.init_chain("A")
+                # Ensure it's 1 letter for PeptideBuilder, fallback to Glycine backbone for non-standards
+                # so the backbone geometry is constructed properly
+                pb_res = one_letter if len(one_letter) == 1 else "G"
 
-        for i, res in enumerate(residues):
-            builder.init_seg(" ")
-            builder.init_residue(res, " ", i+1, " ")
-            # Just add dummy CA atoms
-            builder.init_atom("CA", [0.0, 0.0, float(i)*3.8], 0.0, 1.0, " ", "CA", "C", "C")
+                geo.phi = phi
+                geo.psi_im1 = psi
+                geo.omega = omega
 
-        structure = builder.get_structure()
+                if structure_seq is None:
+                    structure_seq = PeptideBuilder.initialize_res(pb_res)
+                else:
+                    PeptideBuilder.add_residue(structure_seq, pb_res, geo.phi, geo.psi_im1, geo.omega)
 
-        # Save to temp pdb
+        if structure_seq is None:
+            raise ValueError("No residues found in sequence file.")
+
+        # Write out to PDB format using BioPython
         fd, temp_path = tempfile.mkstemp(suffix=".pdb")
         os.close(fd)
 
-        io = PDBIO()
-        io.set_structure(structure)
+        io = Bio.PDB.PDBIO()
+        io.set_structure(structure_seq)
         io.save(temp_path)
 
-        return self.parse_pdb(temp_path)
+        # Now we parse it back in, and fix the residue names to match what was in the file
+        # since PeptideBuilder might have used "GLY" backbones for the UAAs
+        struct = self.parse_pdb(temp_path)
+
+        residue_names = []
+        with open(seq_angles_file, 'r') as f:
+            for line in f:
+                parts = line.strip().split()
+                if len(parts) > 0:
+                    residue_names.append(parts[0])
+
+        res_idx = 0
+        for model in struct:
+            for chain in model:
+                for residue in chain:
+                    if res_idx < len(residue_names):
+                        residue.resname = residue_names[res_idx]
+                        res_idx += 1
+
+        return struct

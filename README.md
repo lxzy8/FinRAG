@@ -20,5 +20,5 @@ pip install .
 uaamd ff update charmm36
 
 # Prepare MD system
-uaamd prep --input file.pdb
+uaamd prep --input-pdb file.pdb
 ```
