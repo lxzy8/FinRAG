@@ -1,84 +1,62 @@
 import os
-import tarfile
-import requests
-from bs4 import BeautifulSoup
-import click
+import shutil
+import logging
 
-MACKERELL_LAB_URL = "https://mackerell.umaryland.edu/charmm_ff.shtml"
-DOWNLOAD_DIR = os.path.expanduser("~/.uaamd/ff")
+SYSTEM_FF_PATHS = [
+    "/usr/share/gromacs/top",
+    "/usr/local/share/gromacs/top",
+    "/opt/gromacs/share/gromacs/top",
+]
 
-def get_latest_charmm36_url():
-    """Scrapes the MacKerell lab website to find the latest CHARMM36 GROMACS port."""
-    try:
-        response = requests.get(MACKERELL_LAB_URL)
-        response.raise_for_status()
-        soup = BeautifulSoup(response.text, 'html.parser')
+FF_PREFERENCE = [
+    "charmm36m.ff",
+    "charmm36-feb2021.ff",
+    "charmm36.ff",
+    "charmm27.ff",
+]
 
-        # Look for links containing "charmm36" and ".tgz" or ".tar.gz" and ".ff."
-        # This identifies the GROMACS ports
-        for link in soup.find_all('a'):
-            href = link.get('href')
-            if href and '.ff.tgz' in href and 'charmm36' in href.lower():
-                # Construct absolute URL
-                if href.startswith('http'):
-                    return href
-                elif href.startswith('/'):
-                    return f"https://mackerell.umaryland.edu{href}"
-                else:
-                    return f"https://mackerell.umaryland.edu/{href}"
-
-        # Fallback if specific GROMACS port is not found, but this is specific to standard naming
-        # Currently, typically named something like charmm36-jul2022.ff.tgz
-    except Exception as e:
-        click.echo(f"Error fetching from {MACKERELL_LAB_URL}: {e}")
-        return None
-
+def find_system_ff(ff_name):
+    """Find a specific force field in system GROMACS paths."""
+    for base in SYSTEM_FF_PATHS:
+        candidate = os.path.join(base, ff_name)
+        if os.path.isdir(candidate):
+            return candidate
     return None
 
-def download_and_extract(url, target_dir):
-    """Downloads a file from a URL and extracts it into the target directory."""
-    if not os.path.exists(target_dir):
-        os.makedirs(target_dir)
+def update_ff(ff_name="charmm27", ff_base_dir=os.path.expanduser("~/.uaamd/ff")):
+    """
+    Copy force field from system GROMACS installation to ~/.uaamd/ff/
+    Prefers newer CHARMM36 variants, falls back to CHARMM27.
+    """
+    os.makedirs(ff_base_dir, exist_ok=True)
 
-    filename = url.split('/')[-1]
-    filepath = os.path.join(target_dir, filename)
-
-    click.echo(f"Downloading {url} to {filepath}...")
-
-    try:
-        response = requests.get(url, stream=True)
-        response.raise_for_status()
-
-        with open(filepath, 'wb') as f:
-            for chunk in response.iter_content(chunk_size=8192):
-                f.write(chunk)
-
-        click.echo("Download complete. Extracting...")
-
-        if filepath.endswith('.tgz') or filepath.endswith('.tar.gz'):
-            with tarfile.open(filepath, 'r:gz') as tar:
-                tar.extractall(path=target_dir)
-
-        click.echo(f"Successfully extracted to {target_dir}")
-        return True
-    except Exception as e:
-        click.echo(f"Error during download/extraction: {e}")
-        return False
-
-def update_charmm36():
-    """Updates the CHARMM36 force field."""
-    click.echo("Checking for latest CHARMM36 force field (GROMACS format)...")
-    url = get_latest_charmm36_url()
-
-    if not url:
-        click.echo("Failed to find a suitable CHARMM36 download link.")
-        # Fallback to a known recent version directly if scraping fails
-        url = "https://mackerell.umaryland.edu/download/charmm36/charmm36-jul2022.ff.tgz"
-        click.echo(f"Falling back to known URL: {url}")
-
-    success = download_and_extract(url, DOWNLOAD_DIR)
-
-    if success:
-        click.echo("Force field update completed successfully.")
+    # If user asked for charmm27 specifically
+    if ff_name == "charmm27":
+        candidates = ["charmm27.ff"]
     else:
-        click.echo("Force field update failed.")
+        # Try charmm36 variants first, fallback to charmm27
+        candidates = FF_PREFERENCE
+
+    for ff_folder in candidates:
+        system_path = find_system_ff(ff_folder)
+        if system_path:
+            dest = os.path.join(ff_base_dir, ff_folder)
+            if os.path.exists(dest):
+                shutil.rmtree(dest)
+            shutil.copytree(system_path, dest)
+            print(f"Force field '{ff_folder}' copied from {system_path}")
+            print(f"Installed to: {dest}")
+            print("Force field update completed successfully.")
+            return dest
+
+    print("ERROR: No compatible CHARMM force field found in system GROMACS installation.")
+    print("Make sure GROMACS is installed: sudo apt-get install gromacs")
+    return None
+
+def get_installed_ff(ff_base_dir=os.path.expanduser("~/.uaamd/ff")):
+    """Returns the best available installed FF path."""
+    for ff_folder in FF_PREFERENCE:
+        candidate = os.path.join(ff_base_dir, ff_folder)
+        if os.path.isdir(candidate):
+            return candidate
+    return None

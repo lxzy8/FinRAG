@@ -3,12 +3,23 @@ import glob
 from Bio.PDB import PDBIO
 
 def find_latest_charmm36_dir(ff_base_dir):
-    """Finds the most recently downloaded charmm36 force field directory."""
-    ff_dirs = glob.glob(os.path.join(ff_base_dir, "charmm36*.ff"))
-    if not ff_dirs:
-        return None
-    # Just take the first one found or sort by modification time
-    return sorted(ff_dirs, key=os.path.getmtime, reverse=True)[0]
+    """Finds the best available force field directory."""
+    # Preference order - newer is better
+    preferences = [
+        "charmm36m.ff",
+        "charmm36-feb2021.ff", 
+        "charmm36.ff",
+        "charmm27.ff",
+    ]
+    for ff in preferences:
+        candidate = os.path.join(ff_base_dir, ff)
+        if os.path.isdir(candidate):
+            return candidate
+    # Fallback - any charmm ff
+    ff_dirs = glob.glob(os.path.join(ff_base_dir, "charmm*.ff"))
+    if ff_dirs:
+        return sorted(ff_dirs, key=os.path.getmtime, reverse=True)[0]
+    return None
 
 def parse_rtp(rtp_path):
     """Parses a GROMACS .rtp file to get residue definitions and atom names."""
@@ -29,18 +40,16 @@ def parse_rtp(rtp_path):
                 section = line[1:-1].strip()
                 if section == 'atoms':
                     in_atoms = True
-                elif section == 'bonds' or section == 'angles' or section == 'dihedrals' or section == 'impropers' or section == 'cmap':
+                elif section in ('bonds', 'angles', 'dihedrals', 'impropers', 'cmap'):
                     in_atoms = False
                 elif section != 'bondedtypes':
-                    # New residue
                     current_res = section
                     residues[current_res] = []
                     in_atoms = False
             elif in_atoms and current_res:
                 parts = line.split()
                 if parts:
-                    atom_name = parts[0]
-                    residues[current_res].append(atom_name)
+                    residues[current_res].append(parts[0])
 
     return residues
 
@@ -53,23 +62,21 @@ class ForceFieldMatcher:
 
         self.mappings = {
             "F": "FE3",
-            # Specific UAA standard mappings for CHARMM36
+            "HIS": "HSD",
             "SEP": {"P": "P", "O1P": "O1P", "O2P": "O2P", "O3P": "O3P"},
             "TPO": {"P": "P", "O1P": "O1P", "O2P": "O2P", "O3P": "O3P"},
             "PTR": {"P": "P", "O1P": "O1P", "O2P": "O2P", "O3P": "O3P"},
-            "MLY": {"NZ": "NZ", "CH1": "CH1", "CH2": "CH2"}, # e.g. Lysine methylation
-            "MSE": {"SE": "SE", "CE": "CE"} # Selenomethionine
+            "MLY": {"NZ": "NZ", "CH1": "CH1", "CH2": "CH2"},
+            "MSE": {"SE": "SE", "CE": "CE"}
         }
 
         if self.ff_dir:
             self._load_rtp()
 
     def _load_rtp(self):
-        # CHARMM36 typically has aminoacids.rtp, nucleic.rtp, lipids.rtp, etc.
         rtp_files = glob.glob(os.path.join(self.ff_dir, "*.rtp"))
         for rtp in rtp_files:
-            res_dict = parse_rtp(rtp)
-            self.ff_residues.update(res_dict)
+            self.ff_residues.update(parse_rtp(rtp))
 
     def is_residue_supported(self, resname):
         return resname in self.ff_residues
@@ -82,6 +89,7 @@ class ForceFieldMatcher:
 
         fixed_count = 0
         missing_res_count = 0
+        warned_residues = set()  # deduplicate warnings
 
         for model in structure:
             for chain in model:
@@ -90,18 +98,19 @@ class ForceFieldMatcher:
 
                     if not self.is_residue_supported(resname):
                         missing_res_count += 1
-                        report_lines.append(f"Warning: Residue {resname} not found in CHARMM36.")
+                        if resname not in warned_residues:
+                            report_lines.append(
+                                f"Warning: Residue {resname} not found in force field database."
+                            )
+                            warned_residues.add(resname)
                         continue
 
                     ff_atoms = set(self.ff_residues[resname])
 
-                    # Fix atom names (simple heuristics)
                     for atom in residue:
-                        # e.g., F -> FE3 mapping or standardizing hydrogen names
                         atom_name = atom.get_name()
 
                         if atom_name not in ff_atoms:
-                            # Attempt simple mapping (this dictionary would grow based on UAA knowledge)
                             new_name = None
                             if resname in self.mappings and isinstance(self.mappings[resname], dict):
                                 if atom_name in self.mappings[resname]:
@@ -110,15 +119,15 @@ class ForceFieldMatcher:
                                 new_name = self.mappings[atom_name]
 
                             if new_name and new_name in ff_atoms:
-                                report_lines.append(f"Atom mismatch fixed in {resname}: {atom_name} -> {new_name}")
+                                report_lines.append(
+                                    f"Atom mismatch fixed in {resname}: {atom_name} -> {new_name}"
+                                )
                                 atom.set_name(new_name)
                                 fixed_count += 1
-                            else:
-                                pass # Wait for grompp to complain if really missing
 
         report_lines.append(f"Fixed {fixed_count} atom name mismatches.")
         if missing_res_count == 0:
-            report_lines.append("All residues found in CHARMM36.")
+            report_lines.append("All residues found in force field database.")
 
         return structure
 

@@ -1,0 +1,48 @@
+;
+;	File 'topol.top' was generated
+;	By user: unknown (1000)
+;	On host: codespaces-bce784
+;	At date: Sun May 31 04:06:20 2026
+;
+;	This is a standalone topology file
+;
+;	Created by:
+;	         :-) GROMACS - gmx pdb2gmx, 2023.3-Ubuntu_2023.3_1ubuntu3 (-:
+;	
+;	Executable:   /usr/bin/gmx
+;	Data prefix:  /usr
+;	Working dir:  /workspaces/FinRAG/uaamd_out
+;	Command line:
+;	  gmx pdb2gmx -f fixed.pdb -o complex.gro -p topol.top -ff charmm27 -water tip3p -ignh
+;	Force field was read from current directory or a relative path - path added.
+;
+
+; Include forcefield parameters
+#include "./charmm27.ff/forcefield.itp"
+
+; Include chain topologies
+#include "topol_Protein_chain_A.itp"
+#include "topol_Protein_chain_B.itp"
+
+; Include water topology
+#include "./charmm27.ff/tip3p.itp"
+
+#ifdef POSRES_WATER
+; Position restraint for each water oxygen
+[ position_restraints ]
+;  i funct       fcx        fcy        fcz
+   1    1       1000       1000       1000
+#endif
+
+; Include topology for ions
+#include "./charmm27.ff/ions.itp"
+
+[ system ]
+; Name
+HYPOTHETICAL PROTEIN YQJY in water
+
+[ molecules ]
+; Compound        #mols
+Protein_chain_A     1
+Protein_chain_B     1
+SOL             22249

@@ -24,3 +24,6 @@ dependencies = [
 
 [project.scripts]
 uaamd = "uaamd.cli.main:cli"
+
+[tool.setuptools.packages.find]
+include = ["uaamd*"]

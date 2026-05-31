@@ -16,18 +16,17 @@ def ff():
     pass
 
 @ff.command()
-@click.argument('ff_name', type=click.Choice(['charmm36']))
+@click.argument('ff_name', type=click.Choice(['charmm36', 'charmm27']))
 def update(ff_name):
     """Update a specific force field."""
-    if ff_name == 'charmm36':
-        from uaamd.ff.updater import update_charmm36
-        update_charmm36()
+    from uaamd.ff.updater import update_ff
+    update_ff(ff_name)
 
 @cli.command()
 @click.option('--input-pdb', help="Input PDB file.")
 @click.option('--input-seq', help="Input Sequence+Angles file.")
 @click.option('--input-smiles', help="Input SMILES string.")
-@click.option('--work-dir', default="uaamd_out", help="Working directory for outputs.")
+@click.option('--work-dir', default="uaamd_out", help="Base output directory.")
 def prep(input_pdb, input_seq, input_smiles, work_dir):
     """Run the MD preparation pipeline."""
     if not input_pdb and not input_seq and not input_smiles:

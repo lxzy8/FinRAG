@@ -28,7 +28,7 @@ class GmxPipeline:
         except FileNotFoundError:
             return False, "GROMACS ('gmx') is not installed or not in PATH."
 
-    def pdb2gmx(self, input_pdb, output_gro, top_out, ff="charmm36-feb2026_cgenff-5.0", water="tip3p"):
+    def pdb2gmx(self, input_pdb, output_gro, top_out, ff="charmm27", water="tip3p"):
         """Runs gmx pdb2gmx."""
         # Note: ff name must match the folder name in GROMACS share/gromacs/top or current dir
         cmd = [
@@ -40,7 +40,7 @@ class GmxPipeline:
             "-water", water,
             "-ignh" # Ignore hydrogens to let pdb2gmx rebuild them properly
         ]
-        return self._run_cmd(cmd)
+        return self._run_cmd(cmd, input_str="0\n0\n")
 
     def editconf(self, input_gro, output_gro, box_type="cubic", distance=1.0):
         """Runs gmx editconf to define the box."""
@@ -87,6 +87,6 @@ class GmxPipeline:
             "-c", input_gro,
             "-p", top_file,
             "-o", output_tpr,
-            "-maxwarn", "1"
+            "-maxwarn", "2"
         ]
         return self._run_cmd(cmd)

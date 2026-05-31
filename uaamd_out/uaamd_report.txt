@@ -1,0 +1,9 @@
+Starting pipeline for: 2LZM.pdb
+Stripped crystal waters and alternate conformations.
+Successfully parsed structure.
+Warning: Residue HIS not found in force field database.
+Fixed 0 atom name mismatches.
+pdb2gmx passed
+genion passed
+grompp passed
+MD-ready: yes
