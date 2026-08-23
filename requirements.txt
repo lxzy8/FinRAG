@@ -6,3 +6,5 @@ pypdf==5.4.0
 ollama==0.5.1
 requests==2.32.3
 python-dotenv==1.0.1
+pydantic>=2.0.0
+pandas>=2.0.0
