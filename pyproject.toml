@@ -1,0 +1,29 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "open-financial-analyst"
+version = "0.1.0"
+description = "Agentic RAG over SEC filings with deterministic financial-metric extraction"
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+    "langchain",
+    "langchain-core",
+    "langchain-google-genai",
+    "langgraph",
+    "sec-edgar-downloader",
+    "beautifulsoup4",
+    "lxml",
+    "sentence-transformers",
+    "faiss-cpu",
+    "rank_bm25",
+    "numpy",
+]
+
+[project.optional-dependencies]
+dev = ["pytest"]
+
+[tool.setuptools.packages.find]
+where = ["src"]
