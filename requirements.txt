@@ -13,6 +13,7 @@ torch
 openai
 
 # Web search
+ddgs
 duckduckgo-search
 tavily-python
 transformers
