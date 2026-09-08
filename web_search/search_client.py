@@ -4,7 +4,7 @@ Web search API wrapper — DuckDuckGo (free, no key) aur Tavily
 """
 
 import os
-from duckduckgo_search import DDGS
+from ddgs import DDGS  # naya package name
 
 
 def search_duckduckgo(query: str, max_results: int = 5) -> list[dict]:
