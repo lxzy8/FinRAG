@@ -1,0 +1,26 @@
+# Ingestion
+requests
+beautifulsoup4
+
+# Retrieval
+sentence-transformers
+rank-bm25
+FlagEmbedding
+numpy
+torch
+
+# Generation
+openai
+
+# Web search
+duckduckgo-search
+tavily-python
+transformers
+accelerate
+
+# Eval
+ragas
+datasets
+
+# Vector DB (Kaggle pe use karenge, abhi optional)
+qdrant-client
