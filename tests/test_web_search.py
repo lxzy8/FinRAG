@@ -36,9 +36,11 @@ def test_search_and_filter():
     for r in results[:2]:
         print(f"  - {r['title']}: {r['url']}")
 
-    print("\n=== Filtering with MiniCPM5-1B ===")
-    filtered = filter_and_summarize(query, results)
-    print(filtered)
+    print("\n=== Filtering with MiniCPM5-1B (relevance-only) ===")
+    filtered = filter_relevant_results(query, results)
+    print(f"✓ {len(filtered)} results passed relevance filter")
+    for r in filtered:
+        print(f"  - {r['title']}: {r['snippet'][:150]}")
 
 
 if __name__ == "__main__":
